@@ -1117,13 +1117,12 @@ def Factory():
                 return False
             case "夜航手册65" | "夜航手册30":
                 Sleep(2)
-                GoBack(1000)
-                GoLeft(6000)
-                GoForward(11300)
-                GoLeft(6000)
-                DoubleJump()
-                GoLeft(3000)
-                GoLeft(14000)
+                CastSpearRush(3)
+                AUTOCalibration_P([800,450])
+                CastSpearRush(7)
+                AUTOCalibration_P([800,450])
+                CastSpearRush(5)
+
                 if not ResetPosition():
                     return False
                 return True
