@@ -18,13 +18,13 @@ DUNGEON_TARGETS = {
     "角色经验": {"50":5},
     "角色材料": {"10":1, "30":3, "60":6},
     "武器突破": {"60":5, "70":6},
-    "皎皎币":   {"60":3,"70":4},
+    "皎皎币":   {"50":2,"60":3,"70":4},
     "夜航手册": {"30":2, "40":3,"50":4,"55":5, "60":6,"65":7,"70":8,"80":8},
     "魔之楔(不是夜航手册!)": {"40":1, "60": 2, "80":3, "100":4},
     "mod强化": {"60":4, "60(测试)":4},
     "钓鱼": {"悠闲":0},
     "迷津": {"默认难度":0},
-    # "测试": {"测试":0}
+    "测试": {"测试":0}
     }
 DUNGEON_EXTRA = ["无关心","1","2","3","4","5","6","7","8","9"]
 
@@ -967,7 +967,7 @@ def Factory():
             DeviceShell(f"input swipe 1200 225 {round((pos[0]-800)/(3.5*setting._FPS_ADJUSTER)+1200)} 225")
             Sleep(0.5)
         return False
-    def AUTOCalibration_P(tar_p, tar_s = None, roi = None):
+    def AUTOCalibration_P(tar_p=[800,450], tar_s = None, roi = None):
         """
         进行自动校准. P代表校准到一个特定的位置(p).
         tar_p: 目标符号想要前往的像素坐标.
@@ -1088,6 +1088,12 @@ def Factory():
                 GoBack(1000)
                 GoLeft(100)
                 return True
+            case "皎皎币50":
+                AUTOCalibration_P()
+                CastSpearRush(4)
+                AUTOCalibration_P()
+                CastSpearRush(1)
+                return True
             case "皎皎币60":
                 if not ResetPosition():
                     return False
@@ -1197,18 +1203,16 @@ def Factory():
                     return False
             case "夜航手册80":
                 if (setting._FARM_EXTRA == "无关心") or (int(setting._FARM_EXTRA) not in [1,2,3,4,5]) :
-                    logger.info("暂不支持的mod额外参数. 当前仅支持1,2,3,4,5.")
+                    logger.info("暂不支持的mod额外参数. 当前仅支持1,2,3,4.")
                     return False
                 if int(setting._FARM_EXTRA) == 1:
                     return True
                 if int(setting._FARM_EXTRA) == 2:
                     return True
                 if int(setting._FARM_EXTRA) == 3:
-                    return True
-                if int(setting._FARM_EXTRA) == 4:
                     GoForward(14000)
                     return True
-                if int(setting._FARM_EXTRA) == 5:
+                if int(setting._FARM_EXTRA) == 4:
                     AUTOCalibration_P([800,450])
                     GoForward(15000)
                     return True
@@ -1532,12 +1536,6 @@ def Factory():
                 logger.info("不对, 你怎么能运行这个??")
                 return True
             case "测试测试":
-                
-                GoForward(11300)
-                GoLeft(500)
-                GoLeft(500)
-                GoLeft(500)
-                GoLeft(500)
                              
                 return True
             case _ :
