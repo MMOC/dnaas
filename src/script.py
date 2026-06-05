@@ -1099,6 +1099,8 @@ def Factory():
                 CastSpearRush(4)
                 AUTOCalibration_P()
                 CastSpearRush(1)
+                AUTOCalibration_P()
+                CastSpearRush(1)
                 return True
             case "皎皎币60":
                 if not ResetPosition():
