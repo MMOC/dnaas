@@ -19,7 +19,7 @@ DUNGEON_TARGETS = {
     "角色材料": {"10":1, "30":3, "60":6},
     "武器突破": {"60":5, "70":6},
     "皎皎币":   {"50":2,"60":3,"70":4},
-    "夜航手册": {"30":2, "40":3,"50":4,"55":5, "60":6,"65":7,"70":8,"80":8},
+    "夜航手册": {"30":2, "40":3,"50":4,"55":5, "60":6,"65":7,"70":8,"75":7,"80":8},
     "魔之楔(不是夜航手册!)": {"40":1, "60": 2, "80":3, "100":4},
     "mod强化": {"60":4, "60(测试)":4},
     "钓鱼": {"悠闲":0},
@@ -36,6 +36,7 @@ CONFIG_VAR_LIST = [
             ["farm_extra_var",              tk.StringVar,  "_FARM_EXTRA",                 "无关心"],
             ["emu_path_var",                tk.StringVar,  "_EMUPATH",                    ""],
             ["adb_port_var",                tk.StringVar,  "_ADBPORT",                    16384],
+            ["EMU_INDEX",                   tk.StringVar,  "_EMUINDEX",                   0],
             ["last_version",                tk.StringVar,  "LAST_VERSION",                ""],
             ["latest_version",              tk.StringVar,  "LATEST_VERSION",              None],
             ["low_fps_var",                 tk.BooleanVar, "_LOW_FPS",                    False],
@@ -188,8 +189,13 @@ def StartEmulator(setting):
 
     try:
         logger.info(f"启动模拟器: {hd_player_path}")
+        if setting._EMUINDEX != 0:
+            if "MuMu" in hd_player_path:
+                cmd = ("\"{hd}\" control -v {a}").format(hd=hd_player_path, a=setting._EMUINDEX)
+            else:
+                 logger.error("指定模拟器编号暂时不支持蓝叠.")
         subprocess.Popen(
-            hd_player_path,
+            cmd,
             shell=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -809,9 +815,9 @@ def Factory():
         # logger.info(f"往右走 剩余{time}")
         SPLIT = 3000
         if time <= SPLIT:
-            DeviceShell(f"input swipe 50 550 560 550 {int(1.02*time)}")
+            DeviceShell(f"input swipe 150 550 560 550 {int(1.02*time)}")
         else:
-            DeviceShell(f"input swipe 50 550 560 550 {int(1.02*SPLIT)}")
+            DeviceShell(f"input swipe 150 550 560 550 {int(1.02*SPLIT)}")
             GoRight(time-SPLIT)
     def GoForward(time = 1000):
         # logger.info(f"往前走 剩余{time}")
@@ -1039,6 +1045,8 @@ def Factory():
             FindCoordsOrElseExecuteFallbackAndWait("肉鸽_堕入深渊","肉鸽_前往",1)
             Press(FindCoordsOrElseExecuteFallbackAndWait("肉鸽_开始探索", ["肉鸽_堕入深渊","确定","肉鸽_关闭结算", "肉鸽_结束探索"],1))
         elif setting._FARM_TYPE != "夜航手册":
+            Press(CheckIf(ScreenShot(),"xx委托xx"))
+            Sleep(1)
             FindCoordsOrElseExecuteFallbackAndWait(setting._FARM_TYPE,"input swipe 1400 400 1300 400",1)
             FindCoordsOrElseExecuteFallbackAndWait("开始挑战",setting._FARM_TYPE,2)
             roi = [50,182+57*(DUNGEON_TARGETS[setting._FARM_TYPE][setting._FARM_LVL]-1),275,57]
@@ -1059,7 +1067,7 @@ def Factory():
         elif setting._FARM_TYPE == "夜航手册":
             FindCoordsOrElseExecuteFallbackAndWait("前往","夜航手册",1)
             lvl = DUNGEON_TARGETS[setting._FARM_TYPE][setting._FARM_LVL]
-            if setting._FARM_LVL != '80':
+            if setting._FARM_LVL not in ["75","80"]:
                 DeviceShell("input swipe 562 210 562 714")
                 Sleep(2)
             Press([562,210+(lvl-1)*84])
@@ -1226,7 +1234,23 @@ def Factory():
                     AUTOCalibration_P([800,450])
                     GoForward(15000)
                     return True
-
+            case "夜航手册75":
+                if (setting._FARM_EXTRA == "无关心") or (int(setting._FARM_EXTRA) not in [1,2,3,4,5]) :
+                    logger.info("暂不支持的mod额外参数. 当前仅支持1,2,3,4,5.")
+                    return False
+                if int(setting._FARM_EXTRA) == 1:
+                    return True
+                if int(setting._FARM_EXTRA) == 2:
+                    GoForward(7000)
+                    return True
+                if int(setting._FARM_EXTRA) == 3:
+                    return True
+                if int(setting._FARM_EXTRA) == 4:
+                    CastSpearRush(4)
+                    return True
+                if int(setting._FARM_EXTRA) == 5:
+                    AUTOCalibration_P([800,450])
+                    GoForward(15000)
             case "角色经验50":
                 if CheckIf(ScreenShot(), "保护目标", [[693,212,109,110]]):
                     GoForward(9600)
@@ -1297,6 +1321,7 @@ def Factory():
                     return True
                 return False
             case "武器突破60" | "武器突破70":
+                Sleep(2)
                 GoRight(round((2+(56-32)/60)*1000))
                 GoForward(round((42-25+34/60)*1000))
                 GoLeft(round((2+22/60)*1000))
@@ -1734,10 +1759,10 @@ def Factory():
                 if Press(CheckIf(scn,"小月卡")):
                     logger.info("已领取小月卡.")
                     return True
-                if CheckIf(scn,"每日签到"):
-                    Press([1405,188])
-                    logger.info("已领取每日签到.")
-                    return True
+            if CheckIf(scn,"每日签到"):
+                Press([1405,188])
+                logger.info("已领取每日签到.")
+                return True
             return False
         @register('normal')
         def handle_countinue_in_game(scn):
@@ -1788,7 +1813,7 @@ def Factory():
                         runtimeContext._AUTO_LETTER_INFO = f"已完成{runtimeContext._AUTO_LETTER_GAME_COUNTER}次自动密函驱离."
                     else:
                         runtimeContext._GAME_COUNTER += 1
-                        runtimeContext._GAME_END_INFO = f"第{runtimeContext._GAME_COUNTER}次{setting._FARM_TYPE+setting._FARM_LVL}完成.\n累计用时{runtimeContext._TOTAL_TIME:.2f}秒."
+                        runtimeContext._GAME_END_INFO = f"已完成{runtimeContext._GAME_COUNTER}次{setting._FARM_TYPE+setting._FARM_LVL}.\n累计用时{runtimeContext._TOTAL_TIME:.2f}秒."
                     
                     logger.info(f"{runtimeContext._AUTO_LETTER_INFO }\n{runtimeContext._GAME_END_INFO}", extra={"summary": True})
 
