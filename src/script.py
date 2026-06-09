@@ -445,6 +445,9 @@ def Factory():
         logger.debug(f"DeviceShell {cmdStr}")
 
         while True:
+            if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                logger.info("检测到停止请求, 中断ADB命令.")
+                raise RestartSignal()
             exception = None
             result = None
             completed = Event()
@@ -489,6 +492,9 @@ def Factory():
         time.sleep(t)
     def ScreenShot():
         while True:
+            if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                logger.info("检测到停止请求, 中断截图.")
+                raise RestartSignal()
             try:
                 # logger.debug('ScreenShot')
                 screenshot = setting._ADBDEVICE.screencap()
@@ -767,7 +773,11 @@ def Factory():
         Sleep(2)
         logger.info("二重螺旋, 启动!")
         logger.debug(DeviceShell(f"am start -n {mainAct}"))
-        Sleep(waittime)
+        for _ in range(waittime):
+            if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                logger.info("检测到停止请求, 中断游戏启动等待.")
+                raise RestartSignal()
+            Sleep(1)
         raise RestartSignal()
     class RestartSignal(Exception):
         pass
@@ -850,7 +860,11 @@ def Factory():
             if CheckIf(scn,"放弃挑战") or CheckIf(scn,"放弃挑战_云"):
                 Press(FindCoordsOrElseExecuteFallbackAndWait("确定",["放弃挑战","放弃挑战_云"],2))
                 
-                Sleep(10)
+                for _ in range(10):
+                    if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                        logger.info("检测到停止请求, 中断退出等待.")
+                        return
+                    Sleep(1)
                 return
             if CheckIf(scn, "再次进行"):
                 return
@@ -978,19 +992,24 @@ def Factory():
             DeviceShell(f"input swipe 1200 225 {round((pos[0]-800)/(3.5*setting._FPS_ADJUSTER)+1200)} 225")
             Sleep(0.5)
         return False
-    def AUTOCalibration_P(tar_p=[800,450], tar_s = None, roi = None):
+    def AUTOCalibration_P(tar_p=[800,450], tar_s = None, roi = None, timeout = 5):
         """
         进行自动校准. P代表校准到一个特定的位置(p).
         tar_p: 目标符号想要前往的像素坐标.
         tar_s: 目标符号的特殊声明. 如果该参数为none, 则默认为保护目标(黄点)或撤离点(绿点).
         roi: 我们关心的图片区域. 不在这个区域中的内容一律忽略. None意味着我们使用全部的区域.
+        timeout: 总超时时间(秒), 超过后强制退出校准.
         """
-        if tar_p[1] >= 595:
-            if not AUTOCalibration_P([tar_p[0], 450], tar_s,roi):
-                return False
         if roi == None:
             roi = [[175,89,1177,719]]
+        start_time = time.time()
         for iter in range(50):
+            if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                logger.info("检测到停止请求, 中断校准.")
+                return False
+            if time.time() - start_time > timeout:
+                logger.info(f"自动校准超时({timeout}秒), 停止校准.")
+                return False
             scn = ScreenShot()
             if CheckIf(scn,"再次进行"):
                 return False
@@ -1178,14 +1197,11 @@ def Factory():
                 GoBack(1000)
                 GoLeft(6000)
                 GoForward(11300)
-                DeviceShell(f"input swipe 800 225 {(800-728/setting._FPS_ADJUSTER)} 225 500")
-                AUTOCalibration_P([800,600])
-                CastSpearRush(4)
-                AUTOCalibration_P()
-                GoForward(6000)
-
-                if not ResetPosition():
-                    return False
+                GoLeft(6000)
+                DoubleJump()
+                GoLeft(3000)
+                GoLeft(14000)
+                GoLeft(7500)
                 return True
             case "夜航手册50":
                 if CheckIf(ScreenShot(), "保护目标", [[693,212,109,110]]):
@@ -2008,47 +2024,52 @@ def Factory():
             if setting._FORCESTOPING.is_set():
                 break
 
-            scn = ScreenShot()
+            try:
+                scn = ScreenShot()
 
-            handled_scene = False
-            for handler in active_handlers:
-                if handler(scn):
-                    handled_scene = True
-                    break
+                handled_scene = False
+                for handler in active_handlers:
+                    if handler(scn):
+                        handled_scene = True
+                        break
 
-            if handled_scene == True:
-                check_counter = 0
-                continue
-            else:
-                check_counter +=1
-                Press([1,1])
+                if handled_scene == True:
+                    check_counter = 0
+                    continue
+                else:
+                    check_counter +=1
+                    Press([1,1])
 
-            if time.time()-round_time < 1:
-                Sleep(1-(time.time()-round_time))
-                round_time = time.time()
-                logger.debug(f"round time {round_time}")
+                if time.time()-round_time < 1:
+                    Sleep(1-(time.time()-round_time))
+                    round_time = time.time()
+                    logger.debug(f"round time {round_time}")
 
-            if check_counter < 5:
-                logger.debug(f"定位中, 尝试次数:{check_counter}/20")
-            if check_counter >= 5:
-                logger.info(f"定位中, 尝试次数:{check_counter}/20")
-                if ("dna" not in DeviceShell("dumpsys window | grep mCurrentFocus")) and ("duetnightabyss" not in DeviceShell("dumpsys window | grep mCurrentFocus")) :
-                    logger.info("游戏未启动, 尝试启动.")
+                if check_counter < 5:
+                    logger.debug(f"定位中, 尝试次数:{check_counter}/20")
+                if check_counter >= 5:
+                    logger.info(f"定位中, 尝试次数:{check_counter}/20")
+                    if ("dna" not in DeviceShell("dumpsys window | grep mCurrentFocus")) and ("duetnightabyss" not in DeviceShell("dumpsys window | grep mCurrentFocus")) :
+                        logger.info("游戏未启动, 尝试启动.")
+                        try:
+                            restartGame(skipScreenShot = True)
+                            Press([1,1])
+                        except RestartSignal:
+                            pass
+                        check_counter = 0
+                        continue
+                if check_counter >= runtimeContext._MAXRETRYLIMIT:
+                    logger.error("超过尝试次数, 重启游戏.")
                     try:
-                        restartGame(skipScreenShot = True)
+                        restartGame()
                         Press([1,1])
                     except RestartSignal:
                         pass
                     check_counter = 0
                     continue
-            if check_counter >= runtimeContext._MAXRETRYLIMIT:
-                logger.error("超过尝试次数, 重启游戏.")
-                try:
-                    restartGame()
-                    Press([1,1])
-                except RestartSignal:
-                    pass
-                check_counter = 0
+            except RestartSignal:
+                if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
+                    break
                 continue
 
         setting._FINISHINGCALLBACK()
