@@ -402,6 +402,27 @@ class ConfigPanelApp(tk.Toplevel):
             )
         self.cast_E_print_check.grid(row=0, column=0)
 
+        # 定时自动重启
+        row_counter += 1
+        frame_row = ttk.Frame(self.main_frame)
+        frame_row.grid(row=row_counter, column=0, sticky="ew", pady=5)
+        ttk.Label(frame_row, text="自动重启间隔(分钟, 0=关闭):").grid(row=0, column=1, sticky=tk.W, pady=5)
+        self.auto_restart_entry = ttk.Entry(frame_row,
+                                             textvariable=self.auto_restart_var,
+                                             validate="key",
+                                             validatecommand=(vcmd_non_neg, '%P'),
+                                             width=5)
+        self.auto_restart_entry.grid(row=0, column=2)
+        self.button_save_auto_restart = ttk.Button(
+            frame_row,
+            text="保存",
+            command=self.save_config,
+            width=4
+            )
+        self.button_save_auto_restart.grid(row=0, column=3)
+        Tooltip(self.auto_restart_entry, "游戏频繁崩溃时可调该数字，直至不出现崩溃")
+        Tooltip(frame_row, "游戏频繁崩溃时可调该数字，直至不出现崩溃")
+
         # 分割线
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -511,6 +532,8 @@ class ConfigPanelApp(tk.Toplevel):
             self.auto_letter_char_check,
             self.auto_letter_mod_check,
             self.auto_letter_weapeon_check,
+            self.auto_restart_entry,
+            self.button_save_auto_restart,
             ]
 
         if state == tk.DISABLED:

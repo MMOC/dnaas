@@ -55,6 +55,7 @@ CONFIG_VAR_LIST = [
             ["auto_letter_char",            tk.BooleanVar, "_AUTO_LETTER_CHAR",           False],
             ["auto_letter_weapeon",         tk.BooleanVar, "_AUTO_LETTER_WEAPEON",        False],
             ["auto_letter_mod",             tk.BooleanVar, "_AUTO_LETTER_MOD",            False],
+            ["auto_restart_var",           tk.IntVar,     "_AUTO_RESTART_MINUTES",       0],
             ]
 
 class FarmConfig:
@@ -444,6 +445,20 @@ def Factory():
     def DeviceShell(cmdStr):
         logger.debug(f"DeviceShell {cmdStr}")
 
+        # 对 input swipe 命令，根据持续时间计算超时
+        if cmdStr.startswith("input swipe"):
+            parts = cmdStr.split()
+            if len(parts) >= 7:
+                try:
+                    swipe_duration_ms = int(parts[6])
+                    cmd_timeout = max(7, swipe_duration_ms / 1000 + 5)
+                except ValueError:
+                    cmd_timeout = 30
+            else:
+                cmd_timeout = 30
+        else:
+            cmd_timeout = 7
+
         while True:
             if setting._FORCESTOPING and setting._FORCESTOPING.is_set():
                 logger.info("检测到停止请求, 中断ADB命令.")
@@ -455,7 +470,7 @@ def Factory():
             def adb_command_thread():
                 nonlocal exception, result
                 try:
-                    result = setting._ADBDEVICE.shell(cmdStr, timeout=5)
+                    result = setting._ADBDEVICE.shell(cmdStr, timeout=cmd_timeout)
                 except Exception as e:
                     exception = e
                 finally:
@@ -466,10 +481,10 @@ def Factory():
             thread.start()
 
             try:
-                if not completed.wait(timeout:=7):
+                if not completed.wait(timeout=cmd_timeout):
                     # 线程超时未完成
                     logger.warning(f"ADB命令执行超时: {cmdStr}")
-                    raise TimeoutError(f"ADB命令在{timeout}秒内未完成")
+                    raise TimeoutError(f"ADB命令在{cmd_timeout}秒内未完成")
 
                 if exception is not None:
                     raise exception
@@ -808,13 +823,7 @@ def Factory():
             logger.info(e)
             return False
     def GoLeft(time = 1000):
-        # logger.info(f"往左走 剩余{time}")
-        SPLIT = 3000
-        if time <= SPLIT:
-            DeviceShell(f"input swipe 460 550 50 550 {int(time*41/40)}")
-        else:
-            DeviceShell(f"input swipe 460 550 50 550 {int(SPLIT*41/40)}")
-            GoLeft(time-SPLIT)
+        DeviceShell(f"input swipe 460 550 50 550 {int(time*41/40)}")
 
     def DoubleJump():
         Press([1359,478])
@@ -822,29 +831,11 @@ def Factory():
         Press([1359,478])
 
     def GoRight(time = 1000):
-        # logger.info(f"往右走 剩余{time}")
-        SPLIT = 3000
-        if time <= SPLIT:
-            DeviceShell(f"input swipe 150 550 560 550 {int(1.02*time)}")
-        else:
-            DeviceShell(f"input swipe 150 550 560 550 {int(1.02*SPLIT)}")
-            GoRight(time-SPLIT)
+        DeviceShell(f"input swipe 150 550 560 550 {int(1.02*time)}")
     def GoForward(time = 1000):
-        # logger.info(f"往前走 剩余{time}")
-        SPLIT = 3000
-        if time <= SPLIT:
-            DeviceShell(f"input swipe 500 710 500 500 {int(time*21/20)}")
-        else:
-            DeviceShell(f"input swipe 500 710 500 500 {int(SPLIT*21/20)}")
-            GoForward(time-SPLIT)
+        DeviceShell(f"input swipe 500 710 500 500 {int(time*21/20)}")
     def GoBack(time = 1000):
-        # logger.info(f"往后走 剩余{time}")
-        SPLIT = 3000
-        if time <= SPLIT:
-            DeviceShell(f"input swipe 500 400 500 710 {int(time*31/30)}")
-        else:
-            DeviceShell(f"input swipe 500 400 500 710 {int(SPLIT*31/30)}")
-            GoBack(time-SPLIT)
+        DeviceShell(f"input swipe 500 400 500 710 {int(time*31/30)}")
     def Dodge(time = 1):
         for _ in range(time):
             Press([1500,582])
@@ -1603,6 +1594,7 @@ def Factory():
         runtimeContext._IN_GAME_COUNTER = 1
         runtimeContext._GAME_COUNTER = 0
         runtimeContext._GAME_PREPARE = False
+        _script_start_time = time.time()  # 自动重启计时
 
         if setting._LOW_FPS:
             setting._FPS_ADJUSTER = 2
@@ -2023,6 +2015,20 @@ def Factory():
         while 1:
             if setting._FORCESTOPING.is_set():
                 break
+
+            # 定时自动重启游戏
+            if setting._AUTO_RESTART_MINUTES > 0:
+                elapsed = time.time() - _script_start_time
+                if elapsed > setting._AUTO_RESTART_MINUTES * 60:
+                    logger.info(f"已运行{elapsed:.0f}秒, 达到自动重启间隔({setting._AUTO_RESTART_MINUTES}分钟), 重启游戏.")
+                    try:
+                        restartGame()
+                    except RestartSignal:
+                        pass
+                    _script_start_time = time.time()
+                    runtimeContext._START_TIME = time.time()
+                    check_counter = 0
+                    continue
 
             try:
                 scn = ScreenShot()
