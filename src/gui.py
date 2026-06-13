@@ -19,7 +19,7 @@ class ConfigPanelApp(tk.Toplevel):
         super().__init__(master_controller)
         self.controller = master_controller
         self.msg_queue = msg_queue
-        self.geometry('550x688')
+        self.geometry('550x760')
         
         self.title(self.TITLE)
 
@@ -423,6 +423,33 @@ class ConfigPanelApp(tk.Toplevel):
         Tooltip(self.auto_restart_entry, "游戏频繁崩溃时可调该数字，直至不出现崩溃")
         Tooltip(frame_row, "游戏频繁崩溃时可调该数字，直至不出现崩溃")
 
+        # 定时关机
+        row_counter += 1
+        frame_row = ttk.Frame(self.main_frame)
+        frame_row.grid(row=row_counter, column=0, sticky="ew", pady=5)
+        self.shutdown_check = ttk.Checkbutton(
+            frame_row,
+            variable=self.shutdown_check_var,
+            text="定时关机",
+            command=checkcommand,
+            style="Custom.TCheckbutton"
+            )
+        self.shutdown_check.grid(row=0, column=0)
+        ttk.Label(frame_row, text=" | 小时数:").grid(row=0, column=1)
+        self.shutdown_hours_entry = ttk.Entry(frame_row,
+                                             textvariable=self.shutdown_hours_var,
+                                             validate="key",
+                                             validatecommand=(vcmd_non_neg, '%P'),
+                                             width=5)
+        self.shutdown_hours_entry.grid(row=0, column=2)
+        self.button_save_shutdown = ttk.Button(
+            frame_row,
+            text="保存",
+            command=self.save_config,
+            width=4
+            )
+        self.button_save_shutdown.grid(row=0, column=3)
+
         # 分割线
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
@@ -534,6 +561,9 @@ class ConfigPanelApp(tk.Toplevel):
             self.auto_letter_weapeon_check,
             self.auto_restart_entry,
             self.button_save_auto_restart,
+            self.shutdown_check,
+            self.shutdown_hours_entry,
+            self.button_save_shutdown,
             ]
 
         if state == tk.DISABLED:

@@ -26,7 +26,7 @@ DUNGEON_TARGETS = {
     "迷津": {"默认难度":0},
     "测试": {"测试":0}
     }
-DUNGEON_EXTRA = ["无关心","1","2","3","4","5","6","7","8","9"]
+DUNGEON_EXTRA = ["无关心","1","2","3","4","5","6","7","8","9","10","11","12","13"]
 
 ####################################
 CONFIG_VAR_LIST = [
@@ -56,6 +56,8 @@ CONFIG_VAR_LIST = [
             ["auto_letter_weapeon",         tk.BooleanVar, "_AUTO_LETTER_WEAPEON",        False],
             ["auto_letter_mod",             tk.BooleanVar, "_AUTO_LETTER_MOD",            False],
             ["auto_restart_var",           tk.IntVar,     "_AUTO_RESTART_MINUTES",       0],
+            ["shutdown_check_var",         tk.BooleanVar, "_SHUTDOWN_CHECK",             False],
+            ["shutdown_hours_var",         tk.IntVar,     "_SHUTDOWN_HOURS",             0],
             ]
 
 class FarmConfig:
@@ -88,6 +90,7 @@ class RuntimeContext:
     _CASTED_Q = False
     _GAME_PREPARE = False
     _CRASHCOUNTER = 0
+    _DUNGEON_ENTER_TIME = 0  # 进入副本的时间戳，用于副本内超时检测
     #### 自动密函
     _LETTER_HOUR = False
     _AUTO_LETTER_INFO = ""
@@ -748,6 +751,7 @@ def Factory():
     def restartGame(skipScreenShot = False):
         nonlocal runtimeContext
         runtimeContext._GAME_PREPARE = False
+        runtimeContext._DUNGEON_ENTER_TIME = 0
         runtimeContext._MAXRETRYLIMIT = min(50, runtimeContext._MAXRETRYLIMIT + 5) # 每次重启后都会增加5次尝试次数, 以避免不同电脑导致的反复重启问题.
         runtimeContext._IN_GAME_COUNTER = 1
         runtimeContext._CASTED_Q = False
@@ -836,6 +840,7 @@ def Factory():
         DeviceShell(f"input swipe 500 710 500 500 {int(time*21/20)}")
     def GoBack(time = 1000):
         DeviceShell(f"input swipe 500 400 500 710 {int(time*31/30)}")
+
     def Dodge(time = 1):
         for _ in range(time):
             Press([1500,582])
@@ -1113,12 +1118,9 @@ def Factory():
                 GoLeft(100)
                 return True
             case "皎皎币50":
-                AUTOCalibration_P()
-                CastSpearRush(4)
-                AUTOCalibration_P()
-                CastSpearRush(1)
-                AUTOCalibration_P()
-                CastSpearRush(1)
+                GoForward(11000)
+                DoubleJump()
+                GoForward(4000)
                 return True
             case "皎皎币60":
                 if not ResetPosition():
@@ -1228,8 +1230,10 @@ def Factory():
                         return True
                     return False
             case "夜航手册80":
-                if (setting._FARM_EXTRA == "无关心") or (int(setting._FARM_EXTRA) not in [1,2,3,4]) :
-                    logger.info("暂不支持的mod额外参数. 请在支持的额外参数中选择一个: 当前支持[1,2,3,4].")
+                if setting._FARM_EXTRA == "无关心":
+                    return True  # 原地挂机
+                if int(setting._FARM_EXTRA) not in [1,2,3,4]:
+                    logger.info("暂不支持的mod额外参数. 当前支持[1,2,3,4]及无关心.")
                     return False
                 if int(setting._FARM_EXTRA) == 1:
                     return True
@@ -1243,24 +1247,24 @@ def Factory():
                     GoForward(15000)
                     return True
             case "夜航手册75":
-                if (setting._FARM_EXTRA == "无关心") or (int(setting._FARM_EXTRA) not in [1,2,3,4,5]) :
-                    logger.info("暂不支持的mod额外参数. 当前仅支持1,2,3,4,5.")
+                if (setting._FARM_EXTRA == "无关心") or (int(setting._FARM_EXTRA) not in [1,2,3,4,5,6,7,8,9,10,11,12,13]):
+                    logger.info("暂不支持的mod额外参数. 当前仅支持1~13.")
                     return False
-                if int(setting._FARM_EXTRA) == 1:
+                if int(setting._FARM_EXTRA) in [1,2,3,6,7,10,11]:
                     GoForward(7000)
                     return True
-                if int(setting._FARM_EXTRA) == 2:
-                    GoForward(7000)
-                    return True
-                if int(setting._FARM_EXTRA) == 3:
-                    GoForward(7000)
-                    return True
-                if int(setting._FARM_EXTRA) == 4:
+                if int(setting._FARM_EXTRA) in [4]:
                     CastSpearRush(4)
                     return True
-                if int(setting._FARM_EXTRA) == 5:
+                if int(setting._FARM_EXTRA) in [8,12]:
+                    GoForward(11000)
+                    DoubleJump()
+                    GoForward(4000)
+                    return True
+                if int(setting._FARM_EXTRA) in [5,9,13]:
                     AUTOCalibration_P([800,450])
                     GoForward(15000)
+                    return True
             case "角色经验50":
                 if CheckIf(ScreenShot(), "保护目标", [[693,212,109,110]]):
                     GoForward(9600)
@@ -1747,14 +1751,6 @@ def Factory():
             return False
         @register('normal')
         def handle_confirm_and_select_letter(scn):
-            if pos:=CheckIf(scn, "选择密函(开始)",[[800,450,800,450]]):
-                Press(pos)
-                return True
-            if CheckIf(scn, "选择密函"):
-                Press([810,437])
-                Sleep(0.2)
-                Press([810,437])
-                Sleep(0.2)
             if CheckIf(scn:=ScreenShot(), "确认选择"):
                 Press(CheckIf(scn,"确认选择"))
                 return True
@@ -1850,6 +1846,7 @@ def Factory():
                     Sleep(1)
                     if resetMove():
                         runtimeContext._GAME_PREPARE = True
+                        runtimeContext._DUNGEON_ENTER_TIME = time.time()
                     else:
                         logger.info("尚未支持的地图, 重新进本.")
                         # SaveDebugImage()
@@ -1859,6 +1856,12 @@ def Factory():
                 if time.time() - runtimeContext._START_TIME > setting._RESTART_INTERVAL:
                     logger.info("时间太久了, 重来吧")
                     runtimeContext._START_TIME = time.time()
+                    QuitDungeon()
+                    return True
+                # 副本内超时检测：如果进本超过 300 秒还未完成，退出重进
+                dungeon_elapsed = time.time() - runtimeContext._DUNGEON_ENTER_TIME
+                if runtimeContext._GAME_PREPARE and dungeon_elapsed > 300:
+                    logger.info(f"副本内已耗时{dungeon_elapsed:.0f}秒, 退出重进.")
                     QuitDungeon()
                     return True
                 CastSpell()
@@ -2029,6 +2032,20 @@ def Factory():
                     runtimeContext._START_TIME = time.time()
                     check_counter = 0
                     continue
+
+            # 定时关机
+            if setting._SHUTDOWN_CHECK and setting._SHUTDOWN_HOURS > 0:
+                elapsed = time.time() - _script_start_time
+                if elapsed > setting._SHUTDOWN_HOURS * 3600:
+                    logger.info(f"已运行{elapsed:.0f}秒, 达到定时关机时间({setting._SHUTDOWN_HOURS}小时), 准备关机.")
+                    try:
+                        restartGame()  # 先关闭游戏
+                    except RestartSignal:
+                        pass
+                    logger.info("游戏已关闭, 60秒后执行系统关机.")
+                    os.system("shutdown /s /t 60")
+                    setting._FORCESTOPING.set()
+                    break
 
             try:
                 scn = ScreenShot()
